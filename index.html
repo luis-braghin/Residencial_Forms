@@ -617,8 +617,15 @@
         const sobreVoceInput = document.getElementById('sobreVoce');
         const charCounter = document.getElementById('charCounter');
 
-        // URL do webhook n8n (você vai substituir depois)
-        const WEBHOOK_URL = 'https://n8n.timesavingtech.com.br/webhook/cadastro-telefone';
+        // Configuração Supabase
+        const SUPABASE_URL = 'https://ladgrqjfhbnncapwayda.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhZGdycWpmaGJubmNhcHdheWRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NzAxNzcsImV4cCI6MjA4OTM0NjE3N30.az6JEpiQUkQPHm7IAqjM20OtbALZ0Q6L2GQnprewKeQ';
+        const SUPABASE_HEADERS = {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+        };
+        const CONDOMINIO_SLUG = 'residencial-imperatriz';
 
         // ==========================================
         // CONTADOR DE CARACTERES - SOBRE VOCÊ
@@ -716,46 +723,73 @@
             submitButton.disabled = true;
             submitButton.textContent = 'Enviando...';
 
-            // Coleta dados
-            const dados = {
-                apartamento: document.getElementById('apartamento').value,
-                nome: document.getElementById('nome').value.trim(),
-                telefone: telefoneInput.value,
-                sobreVoce: sobreVoceInput.value.trim(),
-                msgNormal: document.getElementById('msgNormal').checked ? 'SIM' : 'NÃO',
-                msgUrgente: document.getElementById('msgUrgente').checked ? 'SIM' : 'NÃO',
-                ligacao: document.getElementById('ligacao').checked ? 'SIM' : 'NÃO',
-                comunicados: document.getElementById('comunicados').checked ? 'SIM' : 'NÃO',
-                timestamp: new Date().toISOString()
-            };
-
-            console.log('📤 Enviando dados:', dados);
-
             try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(dados)
-                });
+                // Passo 1: busca condominio_id pelo slug
+                const condRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/condominios?slug=eq.${CONDOMINIO_SLUG}&select=id`,
+                    { headers: SUPABASE_HEADERS }
+                );
+                const condData = await condRes.json();
+                if (!condData?.length) throw new Error('Condomínio não encontrado');
+                const condominioId = condData[0].id;
 
-                console.log('📡 Resposta:', response.status);
+                // Passo 2: busca apartamento_id pelo número
+                const aptNumero = document.getElementById('apartamento').value;
+                const aptRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/apartamentos?condominio_id=eq.${condominioId}&numero=eq.${aptNumero}&select=id`,
+                    { headers: SUPABASE_HEADERS }
+                );
+                const aptData = await aptRes.json();
+                if (!aptData?.length) throw new Error('Apartamento não encontrado. Verifique o número digitado.');
+                const apartamentoId = aptData[0].id;
 
-                if (response.ok) {
-                    // Sucesso!
-                    form.classList.add('hidden');
-                    successMessage.classList.add('active');
-                    
-                    if (navigator.vibrate) {
-                        navigator.vibrate([50, 30, 50]);
+                // Passo 3: insere morador
+                const moradorRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/moradores`,
+                    {
+                        method: 'POST',
+                        headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=representation' },
+                        body: JSON.stringify({
+                            condominio_id: condominioId,
+                            apartamento_id: apartamentoId,
+                            nome: document.getElementById('nome').value.trim(),
+                            telefone: telefoneInput.value,
+                            sobre: sobreVoceInput.value.trim() || null,
+                            ativo: true
+                        })
                     }
-                } else {
-                    throw new Error('Erro ao enviar');
+                );
+                if (!moradorRes.ok) throw new Error('Erro ao cadastrar morador');
+                const moradorData = await moradorRes.json();
+                const moradorId = moradorData[0].id;
+
+                // Passo 4: insere preferências de notificação
+                const prefsRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/notification_prefs`,
+                    {
+                        method: 'POST',
+                        headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({
+                            morador_id: moradorId,
+                            msg_normal: document.getElementById('msgNormal').checked,
+                            msg_urgente: document.getElementById('msgUrgente').checked,
+                            ligacao: document.getElementById('ligacao').checked,
+                            comunicado: document.getElementById('comunicados').checked
+                        })
+                    }
+                );
+                if (!prefsRes.ok) throw new Error('Erro ao salvar preferências');
+
+                // Sucesso!
+                form.classList.add('hidden');
+                successMessage.classList.add('active');
+
+                if (navigator.vibrate) {
+                    navigator.vibrate([50, 30, 50]);
                 }
             } catch (error) {
                 console.error('❌ Erro:', error);
-                alert('Erro ao cadastrar telefone. Tente novamente ou contate a administração.');
+                alert(error.message || 'Erro ao cadastrar telefone. Tente novamente ou contate a administração.');
                 submitButton.disabled = false;
                 submitButton.textContent = 'Cadastrar Telefone';
             }
