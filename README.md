@@ -9,6 +9,18 @@ Formulário de cadastro de telefone para o **Residencial Imperatriz**, integrado
 - Plus Jakarta Sans (Google Fonts)
 - Sem frameworks ou dependências externas
 
+## Como rodar
+
+Abra `index.html` diretamente no navegador, ou use um servidor local:
+
+```bash
+npx serve .
+```
+
+## Deploy
+
+Projeto estático — compatível com Vercel, Netlify, GitHub Pages ou qualquer servidor HTTP.
+
 ## Funcionalidades
 
 - Cadastro de morador com: apartamento, nome, telefone (+55) e descrição profissional opcional
@@ -22,7 +34,7 @@ Formulário de cadastro de telefone para o **Residencial Imperatriz**, integrado
 - Tela de sucesso com opção de cadastrar novo telefone
 - Prevenção de double-tap zoom no iOS
 
-## Fluxo de envio
+## Fluxo de envio (Supabase)
 
 1. Busca o `condominio_id` pelo slug `residencial-imperatriz`
 2. Busca o `apartamento_id` pelo número informado
@@ -38,18 +50,6 @@ As credenciais do Supabase estão definidas diretamente no `index.html` (projeto
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_ANON_KEY` | Chave anônima pública do Supabase |
 | `CONDOMINIO_SLUG` | Slug do condomínio (`residencial-imperatriz`) |
-
-## Como rodar
-
-Abra `index.html` diretamente no navegador, ou use um servidor local:
-
-```bash
-npx serve .
-```
-
-## Deploy
-
-Projeto estático — compatível com Vercel, Netlify, GitHub Pages ou qualquer servidor HTTP.
 
 ## Estrutura de pastas
 
